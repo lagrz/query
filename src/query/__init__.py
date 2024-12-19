@@ -8,12 +8,12 @@ __version__ = "0.1.0"
 __all__ = [
     "cli",
     "DatabaseAdapter",
-    "SqliteDatabaseConnection", 
+    "SqliteDatabaseConnection",
     "MysqlDatabaseConnection",
     "AdapterSettings",
     "Query",
     "Output",
     "QueryProcessor",
     "parse_initial_data",
-    "get_template_environment"
+    "get_template_environment",
 ]

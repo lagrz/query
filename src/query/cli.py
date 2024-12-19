@@ -16,6 +16,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def write_output(content: str, output_path: Path) -> None:
+    """Write content to the specified output file, creating directories if needed."""
+    try:
+        # Create parent directories if they don't exist
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the content to the file
+        output_path.write_text(content)
+        logger.info(f"Output written to: {output_path}")
+    except Exception as e:
+        logger.error(f"Error writing to output file: {e}")
+        raise
+
+
 def cli() -> None:
     parser = argparse.ArgumentParser(
         description="Process queries from YAML configuration"
@@ -25,6 +39,9 @@ def cli() -> None:
     )
     parser.add_argument(
         "--initial_data", type=str, help="Initial data in key=value,key2=value2 format"
+    )
+    parser.add_argument(
+        "--output", "-o", type=Path, help="Path to output file (optional)"
     )
 
     args = parser.parse_args()
@@ -40,7 +57,10 @@ def cli() -> None:
         template_env = get_template_environment()
         processor = QueryProcessor(args.file, template_env, initial_data)
         result = processor.process()
-        print(result)
+        if args.output:
+            write_output(result, args.output)
+        else:
+            print(result)
     except Exception as e:
         logger.error(f"Error processing queries: {e}")
         sys.exit(1)

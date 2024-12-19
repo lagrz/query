@@ -58,7 +58,14 @@ output:
 Run the script by providing a YAML configuration file and optional initial data:
 
 ```bash
-uv run cli.py --file=config.yaml --initial_data=member_id=1
+uv run query --file=config.yaml --initial_data=member_id=1
+```
+
+Alternatively you can install it using pipx first:
+
+```bash
+pipx install .
+query --file=config.yaml --initial_data=member_id=1
 ```
 
 ### Arguments
@@ -67,6 +74,7 @@ uv run cli.py --file=config.yaml --initial_data=member_id=1
 - `--initial_data`: Initial data in key=value format (optional)
   - Format: key1=value1,key2=value2
   - Example: member_id=1,status=active
+- `--output`: Path to output file (optional)
 
 ### Output
 

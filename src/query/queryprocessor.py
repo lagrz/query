@@ -44,7 +44,9 @@ class QueryProcessor:
                 required_keys = {"adapter_settings", "queries", "output"}
                 missing_keys = required_keys - set(config.keys())
                 if missing_keys:
-                    raise ValueError(f"Missing required config sections: {missing_keys}")
+                    raise ValueError(
+                        f"Missing required config sections: {missing_keys}"
+                    )
                 return config
         except Exception as e:
             logger.error(f"Error loading config file: {e}")
@@ -85,7 +87,9 @@ class QueryProcessor:
         try:
             db, table_name = table.split(".")
         except ValueError:
-            raise ValueError(f"Invalid table format: {table}. Expected format: db.table")
+            raise ValueError(
+                f"Invalid table format: {table}. Expected format: db.table"
+            )
 
         if db not in self.data:
             self.data[db] = {}
