@@ -1,10 +1,12 @@
 import logging
 import sqlite3
 from typing import Any, Dict, List, Optional
+from contextlib import contextmanager
 
 import mysql.connector
+from mysql.connector import pooling
 
-from .dataclass import AdapterSettings  # Ensure this is the correct module path
+from .dataclass import AdapterSettings
 
 logger = logging.getLogger(__name__)
 
@@ -13,20 +15,31 @@ class DatabaseConnectionBase:
     def query(self, query: str) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
+    def close(self) -> None:
+        pass
+
 
 class SqliteDatabaseConnection(DatabaseConnectionBase):
     def __init__(self, database: str):
         self.database = database
+        self._connection = None
+
+    @contextmanager
+    def get_connection(self):
+        conn = sqlite3.connect(self.database)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
 
     def query(self, query: str) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.database) as conn:
-            conn.row_factory = sqlite3.Row  # Enable accessing columns by name
+        with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
                 cursor.execute(query)
                 rows = cursor.fetchall()
-                result = [dict(row) for row in rows]
-                return result
+                return [dict(row) for row in rows]
             except sqlite3.Error as e:
                 logger.error(f"SQLite error executing query: {e}")
                 raise
@@ -36,30 +49,49 @@ class SqliteDatabaseConnection(DatabaseConnectionBase):
 
 class MysqlDatabaseConnection(DatabaseConnectionBase):
     def __init__(
-        self,
-        user: str,
-        password: str,
-        host: str,
-        port: int,
-        database: str,
-        **kwargs: Any,
+            self,
+            user: str,
+            password: str,
+            host: str,
+            port: int,
+            database: str,
+            **kwargs: Any,
     ):
-        self.user = user
-        self.password = password
-        self.host = host
-        self.port = port
-        self.database = database
-        self.extra_params = kwargs  # Allow passing additional parameters if needed
+        self.config = {
+            "user": user,
+            "password": password,
+            "host": host,
+            "port": port,
+            "database": database,
+            "pool_reset_session": True,  # Ensure sessions are reset when returned to pool
+            **kwargs,
+        }
+        self.pool = None
+        self._active_connections = set()
+        self._setup_connection_pool()
+
+    def _setup_connection_pool(self):
+        pool_name = "mypool"
+        pool_size = 5
+        self.pool = mysql.connector.pooling.MySQLConnectionPool(
+            pool_name=pool_name,
+            pool_size=pool_size,
+            **self.config
+        )
+
+    @contextmanager
+    def get_connection(self):
+        conn = self.pool.get_connection()
+        self._active_connections.add(conn)
+        try:
+            yield conn
+        finally:
+            if conn in self._active_connections:
+                self._active_connections.remove(conn)
+            conn.close()
 
     def query(self, query: str) -> List[Dict[str, Any]]:
-        with mysql.connector.connect(
-            user=self.user,
-            password=self.password,
-            host=self.host,
-            port=self.port,
-            database=self.database,
-            **self.extra_params,
-        ) as conn:
+        with self.get_connection() as conn:
             cursor = conn.cursor(dictionary=True)
             try:
                 cursor.execute(query)
@@ -70,6 +102,19 @@ class MysqlDatabaseConnection(DatabaseConnectionBase):
                 raise
             finally:
                 cursor.close()
+
+    def close(self) -> None:
+        if self.pool:
+            # Close any remaining active connections
+            for conn in list(self._active_connections):
+                try:
+                    conn.close()
+                    self._active_connections.remove(conn)
+                except Exception as e:
+                    logger.warning(f"Error closing connection: {e}")
+
+            # Set pool to None to ensure no new connections are created
+            self.pool = None
 
 
 class DatabaseAdapter:
@@ -112,3 +157,7 @@ class DatabaseAdapter:
     def execute_query(self, query: str) -> List[Dict[str, Any]]:
         connection = self._get_connection()
         return connection.query(query)
+
+    def close(self) -> None:
+        if self._connection:
+            self._connection.close()

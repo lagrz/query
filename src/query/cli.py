@@ -3,6 +3,7 @@ import logging
 import sys
 from pathlib import Path
 
+from .queryprocessor import QueryProcessor  # Added missing import
 from .utils import get_template_environment, parse_initial_data
 
 # Configure logging

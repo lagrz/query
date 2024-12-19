@@ -24,29 +24,53 @@ class QueryProcessor:
         self.config = self._load_config()
         self.adapters: Dict[str, DatabaseAdapter] = {}
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        for adapter in self.adapters.values():
+            adapter.close()
+        self.adapters.clear()
+
     def _load_config(self) -> Dict[str, Any]:
         try:
             with open(self.config_path) as f:
-                return yaml.safe_load(f)
+                config = yaml.safe_load(f)
+                if not isinstance(config, dict):
+                    raise ValueError("Config must be a dictionary")
+                required_keys = {"adapter_settings", "queries", "output"}
+                missing_keys = required_keys - set(config.keys())
+                if missing_keys:
+                    raise ValueError(f"Missing required config sections: {missing_keys}")
+                return config
         except Exception as e:
             logger.error(f"Error loading config file: {e}")
             raise
 
     def _get_adapter(self, adapter_name: str) -> DatabaseAdapter:
         if adapter_name not in self.adapters:
+            if adapter_name not in self.config["adapter_settings"]:
+                raise ValueError(f"Adapter settings not found for: {adapter_name}")
             settings = self.config["adapter_settings"][adapter_name]
             self.adapters[adapter_name] = DatabaseAdapter(AdapterSettings(**settings))
         return self.adapters[adapter_name]
 
-    def _process_query(self, query: Query) -> Any:
+    def _process_query(self, query: Query) -> List[Dict[str, Any]]:
         template = self.template_env.from_string(query.query)
-        rendered_query = template.render(**self.data)
+        try:
+            rendered_query = template.render(**self.data)
+        except Exception as e:
+            logger.error(f"Error rendering query template: {e}")
+            raise
 
         logger.debug(f"Executing query: {rendered_query}")
         adapter = self._get_adapter(query.adapter)
 
         # Split multiple queries if present
-        queries = [q.strip() for q in rendered_query.split("\n") if q.strip()]
+        queries = [q.strip() for q in rendered_query.split(";") if q.strip()]
         results = []
 
         for single_query in queries:
@@ -57,7 +81,11 @@ class QueryProcessor:
         return results
 
     def _update_data_structure(self, table: str, results: List[Dict[str, Any]]) -> None:
-        db, table_name = table.split(".")
+        try:
+            db, table_name = table.split(".")
+        except ValueError:
+            raise ValueError(f"Invalid table format: {table}. Expected format: db.table")
+
         if db not in self.data:
             self.data[db] = {}
 
@@ -80,3 +108,5 @@ class QueryProcessor:
         except Exception as e:
             logger.error(f"Error processing queries: {e}")
             raise
+        finally:
+            self.close()
