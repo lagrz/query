@@ -178,6 +178,8 @@ class HttpDatabaseConnection(DatabaseConnectionBase):
         """Parse CSV response into list of dictionaries.
         Assumes first line contains headers and following lines contain data."""
         try:
+            if not response_text:
+                raise ValueError("Empty response")
             result = []
             csv_file = StringIO(response_text)
             reader = csv.reader(csv_file)

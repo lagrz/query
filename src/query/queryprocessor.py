@@ -84,20 +84,27 @@ class QueryProcessor:
         return results
 
     def _update_data_structure(self, table: str, results: List[Dict[str, Any]]) -> None:
-        try:
-            db, table_name = table.split(".")
-        except ValueError:
-            raise ValueError(
-                f"Invalid table format: {table}. Expected format: db.table"
-            )
+        parts = table.split(".")
 
-        if db not in self.data:
-            self.data[db] = {}
-
-        if len(results) == 1:
-            self.data[db][table_name] = results[0]
+        if len(parts) == 1:
+            # Case: table_name
+            self.data[parts[0]] = results[0] if len(results) == 1 else results
         else:
-            self.data[db][table_name] = results
+            # Cases: db.table_name or db.alias.table_name
+            db = parts[0]
+            table_name = parts[-1]  # Last part is always the table name
+
+            if db not in self.data:
+                self.data[db] = {}
+
+            current = self.data[db]
+            # Navigate through intermediate parts if any
+            for part in parts[1:-1]:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+
+            current[table_name] = results[0] if len(results) == 1 else results
 
     def process(self) -> str:
         try:
