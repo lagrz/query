@@ -1,0 +1,49 @@
+import argparse
+import logging
+import sys
+from pathlib import Path
+
+from .utils import get_template_environment, parse_initial_data
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+logger = logging.getLogger(__name__)
+
+
+def cli() -> None:
+    parser = argparse.ArgumentParser(
+        description="Process queries from YAML configuration"
+    )
+    parser.add_argument(
+        "--file", type=Path, required=True, help="Path to YAML configuration file"
+    )
+    parser.add_argument(
+        "--initial_data", type=str, help="Initial data in key=value,key2=value2 format"
+    )
+
+    args = parser.parse_args()
+
+    if not args.file.exists():
+        logger.error(f"Configuration file not found: {args.file}")
+        sys.exit(1)
+
+    try:
+        initial_data = (
+            parse_initial_data(args.initial_data) if args.initial_data else {}
+        )
+        template_env = get_template_environment()
+        processor = QueryProcessor(args.file, template_env, initial_data)
+        result = processor.process()
+        print(result)
+    except Exception as e:
+        logger.error(f"Error processing queries: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    cli()

@@ -1,0 +1,18 @@
+[project]
+name = "query"
+version = "0.1.0"
+description = "A cascading query tool"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "jinja2>=3.1.4",
+    "mysql-connector-python>=9.1.0",
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+query = "query.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
