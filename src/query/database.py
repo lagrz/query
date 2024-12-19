@@ -37,6 +37,7 @@ class SqliteDatabaseConnection(DatabaseConnectionBase):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             try:
+                logger.debug(f"Executing query: {query}")
                 cursor.execute(query)
                 rows = cursor.fetchall()
                 return [dict(row) for row in rows]

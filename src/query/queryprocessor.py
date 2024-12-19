@@ -61,7 +61,8 @@ class QueryProcessor:
     def _process_query(self, query: Query) -> List[Dict[str, Any]]:
         template = self.template_env.from_string(query.query)
         try:
-            rendered_query = template.render(**self.data)
+            logger.debug(f"Using data: {self.data}")
+            rendered_query = template.render(self.data)
         except Exception as e:
             logger.error(f"Error rendering query template: {e}")
             raise
@@ -75,7 +76,7 @@ class QueryProcessor:
 
         for single_query in queries:
             if single_query:
-                result = adapter.execute_query(single_query)
+                result = adapter.execute_query(single_query.strip())
                 results.extend(result)
 
         return results
@@ -104,7 +105,7 @@ class QueryProcessor:
             output = Output(**self.config["output"])
             template = self.template_env.from_string(output.template)
             context = {**self.data, "template_context": output.template_context}
-            return template.render(**context)
+            return template.render(**context).strip()
         except Exception as e:
             logger.error(f"Error processing queries: {e}")
             raise

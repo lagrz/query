@@ -41,9 +41,12 @@ def get_template_environment() -> Environment:
         Gets the transaction information for the first transaction in the db2.transactions list.
         """
         if isinstance(haystack, list):
+            output = []
             for item in haystack:
                 if key in item and item[key] == value:
-                    return item
+                    output.append(item)
+            if output:
+                return output
             return default
         elif isinstance(haystack, dict):
             if key in haystack and haystack[key] == value:
@@ -52,6 +55,9 @@ def get_template_environment() -> Environment:
         else:
             return default
 
-    env = Environment()
+    env = Environment(
+        trim_blocks=True,
+        lstrip_blocks=True,
+    )
     env.filters["find_by_key_value"] = find_by_key_value
     return env
