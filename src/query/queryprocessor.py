@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -52,12 +53,32 @@ class QueryProcessor:
             logger.error(f"Error loading config file: {e}")
             raise
 
+    def _process_adapter_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]:
+        """Process adapter settings to handle environment variables."""
+        processed_settings = {}
+        env_data = {'env': {k: v for k, v in os.environ.items()}}
+        logger.debug(f"Environment data: {env_data}")
+        for key, value in settings.items():
+            if isinstance(value, str):
+                template = self.template_env.from_string(value)
+                try:
+                    processed_value = template.render(**env_data)
+                    processed_settings[key] = processed_value
+                except Exception as e:
+                    logger.error(f"Error processing environment variable in setting {key}: {e}")
+                    raise
+            else:
+                processed_settings[key] = value
+        logger.debug(f"Processed adapter settings: {processed_settings}")
+        return processed_settings
+
     def _get_adapter(self, adapter_name: str) -> DatabaseAdapter:
         if adapter_name not in self.adapters:
             if adapter_name not in self.config["adapter_settings"]:
                 raise ValueError(f"Adapter settings not found for: {adapter_name}")
             settings = self.config["adapter_settings"][adapter_name]
-            self.adapters[adapter_name] = DatabaseAdapter(AdapterSettings(**settings))
+            processed_settings = self._process_adapter_settings(settings)
+            self.adapters[adapter_name] = DatabaseAdapter(AdapterSettings(**processed_settings))
         return self.adapters[adapter_name]
 
     def _process_query(self, query: Query) -> List[Dict[str, Any]]:

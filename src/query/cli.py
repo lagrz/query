@@ -2,16 +2,11 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
 
 from .queryprocessor import QueryProcessor  # Added missing import
 from .utils import get_template_environment, parse_initial_data
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +26,8 @@ def write_output(content: str, output_path: Path) -> None:
 
 
 def cli() -> None:
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         description="Process queries from YAML configuration"
     )
@@ -43,8 +40,21 @@ def cli() -> None:
     parser.add_argument(
         "--output", "-o", type=Path, help="Path to output file (optional)"
     )
-
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level (default: INFO)."
+    )
     args = parser.parse_args()
+
+    numeric_level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
 
     if not args.file.exists():
         logger.error(f"Configuration file not found: {args.file}")
